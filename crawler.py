@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 import httpx
 from bs4 import BeautifulSoup
 
-from config import PROXY, MONITORED_CHANNELS, CRAWL_PAGES_PER_CHANNEL, DB_PATH
+from config import PROXY, MONITORED_CHANNELS, CRAWL_PAGES_PER_CHANNEL, DB_PATH, PAN_TYPES
 from parser import parse_message
 from database import save_resources
 
@@ -84,6 +84,11 @@ class TelegramWebCrawler:
 
                 raw_text = clean_html_to_text(text_div)
                 extracted = parse_message(raw_text, channel=channel, message_id=msg_id)
+                # Keep only the requested cloud-drive types. The default
+                # deployment is quark-only; this prevents Aliyun/Baidu/etc.
+                # links from entering the search database.
+                if PAN_TYPES:
+                    extracted = [r for r in extracted if r.get("pan_type", "").lower() in PAN_TYPES]
                 if extracted:
                     parsed_resources.extend(extracted)
 

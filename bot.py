@@ -3,11 +3,27 @@ import json
 from typing import Optional, Dict, Any, List, Tuple
 import httpx
 
-from config import BOT_TOKEN, PROXY, DB_PATH, ADMIN_USER_IDS
+from config import BOT_TOKEN, PROXY, DB_PATH, ADMIN_USER_IDS, PAN_TYPES
 from database import search, get_stats
 from crawler import TelegramWebCrawler
+from link_checker import filter_live_quark_resources
 
 PAGE_SIZE = 5
+LINK_CHECK_WORKERS = 6
+
+
+async def filter_live_async(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Run blocking share-page probes off the Telegram event loop."""
+    return await asyncio.to_thread(
+        filter_live_quark_resources,
+        results,
+        max_workers=LINK_CHECK_WORKERS,
+    )
+
+
+async def filter_live_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only currently reachable Quark shares before presenting them."""
+    return await filter_live_async(results)
 
 class PansouTelegramBot:
     def __init__(self, token: str = BOT_TOKEN, proxy: Optional[str] = PROXY, db_path: str = DB_PATH):
@@ -156,7 +172,19 @@ class PansouTelegramBot:
 
     async def handle_search(self, chat_id: int, query: str, page: int = 1, message_id: Optional[int] = None):
         offset = (page - 1) * PAGE_SIZE
-        results, total = search(query, limit=PAGE_SIZE, offset=offset, db_path=self.db_path)
+        # Restrict bot results to the configured cloud-drive types.
+        # Current deployment intentionally exposes Quark only.
+        pan_type = PAN_TYPES[0] if len(PAN_TYPES) == 1 else None
+        # Pull a wider candidate window because old database rows may point
+        # to cancelled Quark shares. Validate candidates before displaying;
+        # stop after enough live results are found for this page.
+        candidate_limit = PAGE_SIZE * 8
+        results, raw_total = search(query, pan_type=pan_type, limit=candidate_limit, offset=offset, db_path=self.db_path)
+        results = await filter_live_results(results)
+        # The original total includes shares dropped by pre-flight checks;
+        # report the filtered page as the authoritative result set.
+        total = len(results)
+        results = results[:PAGE_SIZE]
         text, reply_markup = self.format_search_results(query, results, total, page)
 
         if message_id:

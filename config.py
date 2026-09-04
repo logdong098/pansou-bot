@@ -33,6 +33,10 @@ if raw_channels.strip():
 else:
     MONITORED_CHANNELS = DEFAULT_CHANNELS
 
+# 网盘类型过滤：当前只采集/搜索夸克网盘
+raw_pan_types = os.getenv("PAN_TYPES", "quark")
+PAN_TYPES = [p.strip().lower() for p in raw_pan_types.split(",") if p.strip()]
+
 # Crawl settings
 CRAWL_PAGES_PER_CHANNEL = int(os.getenv("CRAWL_PAGES_PER_CHANNEL", "3"))
 CRAWL_INTERVAL_MINUTES = int(os.getenv("CRAWL_INTERVAL_MINUTES", "60"))

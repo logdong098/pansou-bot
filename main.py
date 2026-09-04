@@ -1,10 +1,11 @@
 import argparse
 import asyncio
 import sys
-from config import BOT_TOKEN, PROXY, MONITORED_CHANNELS, CRAWL_INTERVAL_MINUTES, DB_PATH
+from config import BOT_TOKEN, PROXY, MONITORED_CHANNELS, CRAWL_PAGES_PER_CHANNEL, CRAWL_INTERVAL_MINUTES, DB_PATH, PAN_TYPES
 from database import init_db, search, get_stats
 from crawler import TelegramWebCrawler
 from bot import PansouTelegramBot
+from link_checker import filter_live_quark_resources
 
 def print_stats():
     stats = get_stats()
@@ -25,8 +26,12 @@ def print_stats():
 
 def run_cli_search(query: str):
     print(f"\n🔍 正在检索: 「{query}」...")
-    results, total = search(query, limit=10, offset=0)
-    print(f"📊 匹配到 {total} 条结果 (展示前 10 条):\n")
+    pan_type = PAN_TYPES[0] if len(PAN_TYPES) == 1 else None
+    results, total = search(query, pan_type=pan_type, limit=30, offset=0)
+    results = filter_live_quark_resources(results)
+    total = len(results)
+    results = results[:10]
+    print(f"📊 过滤失效链接后匹配到 {total} 条夸克网盘结果 (展示前 10 条):\n")
     if not results:
         print("  未找到相关资源，可尝试更换或缩短关键词。")
         return
@@ -54,7 +59,7 @@ async def scheduled_crawler(crawler: TelegramWebCrawler, interval_minutes: int):
     while True:
         try:
             print(f"\n⏰ [定时任务] 触发频道轮询采集 (周期: {interval_minutes} 分钟)...")
-            await crawler.crawl_all(max_pages=2)
+            await crawler.crawl_all(max_pages=CRAWL_PAGES_PER_CHANNEL)
         except Exception as e:
             print(f"[Scheduled Crawler Error] {e}")
         await asyncio.sleep(interval_minutes * 60)
