@@ -1,0 +1,19 @@
+services:
+  pansou:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pansou-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Store database in mounted /app/data volume for persistence
+      - DB_PATH=/app/data/pansou.db
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount local data directory to persist the SQLite database
+      - ./data:/app/data
+    extra_hosts:
+      # Allows the container to access proxy on the host machine via host.docker.internal
+      - "host.docker.internal:host-gateway"

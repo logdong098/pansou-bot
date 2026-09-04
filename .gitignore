@@ -1,0 +1,24 @@
+# Local configuration and secrets
+.env
+
+# Runtime data
+*.db
+*.db-*
+data/
+logs/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# OMX local runtime state
+.omc/
+.omx/
